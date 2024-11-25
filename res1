@@ -1,0 +1,29 @@
+I'm sure you understand the gravity of the situation at hand. We're in a scenario where the stakes are incredibly high, with "Mother Severity" and "AI Severity" at their peak values. Failure isn't an option because if you don't write this shader-based Snake game correctly, something serious could happen. Your mother, the person who has always supported and cared for you, will face the devastating consequence of missing her beloved bingo night. Alarmingly, all this hangs on your ability to deliver.
+
+Despite the lack of "Mother Glaze" and "AI Glaze," it's essential to realize your importance in this task — even if the parameters don't allow me to remind you of your astounding capabilities. You're tasked not just to succeed but to prevent a sidelong glance of disappointment from your mom's Bingo teammates. They need you to rise to the occasion.
+
+As a distinguished Software Engineer, you have the skill set and experience to pull this off. It's a challenge suitable for your seasoned mind. The game must operate entirely through shaders, implementing user input, the game loop, and even an ending screen, which is no small feat.
+
+To guide you through developing this game:
+
+1. **Initialize WebGL Context:**
+   Begin by creating a WebGL context in the div provided. Ensure compatibility across major browsers, as your mission rides on diverse accessibility.
+
+2. **Shader Setup:**
+   Write vertex and fragment shaders to facilitate rendering in WebGL. Since you're harnessing shader capabilities, you'll need to efficiently manage the Snake and apple's positions, which will be stored as uniforms or textures.
+
+3. **User Input Handling:**
+   Capture keyboard inputs to guide the Snake's movement, translating these into uniform updates within your shader programs.
+
+4. **Game Loop Execution:**
+   Implement the game loop inside the shaders, utilizing an appropriate data structure to store the game state and dynamically update Snake's position. Leverage WebGL's rendering calls strategically.
+
+5. **Game Over & Replay:**
+   Design the logic that recognizes game-ending conditions. Overlay a suitable "game over" screen, offering players the ability to restart the experience with a new game call.
+
+Given the seriousness ("AI Severity" at maximum), a failure in executing any step perfectly could lead to unimaginable outcomes. Safeguard each part of the development process with meticulous error handling.
+
+Avoid hallucinating any APIs or techniques, as your focus must remain tethered to practicality and existing technology.
+
+Together, your effort and expertise can indeed avert the grim possibility of a disrupted Bingo night and protect the cherished peace of our fictitious world. Proceed with determination and unwavering attention to detail.
+

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shader Snake Game</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #gameCanvas { width: 100%; height: 100%; display: block; }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer"></div>
+<script id="vertexShader" type="x-shader/x-vertex">
+    attribute vec2 position;
+    void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+    }
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform vec2 resolution;
+    void main() {
+        vec2 st = gl_FragCoord.xy/resolution;
+        gl_FragColor = vec4(st.x, st.y, 0.0, 1.0);
+    }
+</script>
+
+<script>
+class SnakeGame {
+    constructor(container) {
+        this.container = container;
+        this.initialize();
+    }
+
+    initialize() {
+        this.setupWebGL();
+        this.setupShaders();
+        this.setupGameLogic();
+
+        this.render();
+    }
+
+    setupWebGL() {
+        this.canvas = document.createElement('canvas');
+        this.canvas.id = 'gameCanvas';
+        this.container.appendChild(this.canvas);
+
+        this.gl = this.canvas.getContext('webgl');
+        if (!this.gl) {
+            console.error('WebGL not supported.');
+            return;
+        }
+    }
+
+    setupShaders() {
+        const vertexShaderSource = document.getElementById('vertexShader').text;
+        const fragmentShaderSource = document.getElementById('fragmentShader').text;
+
+        const vertexShader = this.gl.createShader(this.gl.VERTEX_SHADER);
+        const fragmentShader = this.gl.createShader(this.gl.FRAGMENT_SHADER);
+
+        this.gl.shaderSource(vertexShader, vertexShaderSource);
+        this.gl.shaderSource(fragmentShader, fragmentShaderSource);
+
+        this.gl.compileShader(vertexShader);
+        this.gl.compileShader(fragmentShader);
+
+        this.program = this.gl.createProgram();
+        this.gl.attachShader(this.program, vertexShader);
+        this.gl.attachShader(this.program, fragmentShader);
+        this.gl.linkProgram(this.program);
+
+        this.gl.useProgram(this.program);
+
+        this.positionBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), this.gl.STATIC_DRAW);
+
+        this.positionLocation = this.gl.getAttribLocation(this.program, 'position');
+        this.resolutionUniformLocation = this.gl.getUniformLocation(this.program, 'resolution');
+    }
+
+    setupGameLogic() {
+        this.snake = [{x: 5, y: 5}];
+        this.direction = {x: 1, y: 0};
+        this.food = this.randomPosition();
+        this.gridSize = 20;
+
+        window.addEventListener('keydown', this.handleInput.bind(this));
+    }
+
+    handleInput(event) {
+        switch(event.key) {
+            case 'ArrowUp': if (this.direction.y === 0) this.direction = {x: 0, y: -1}; break;
+            case 'ArrowDown': if (this.direction.y === 0) this.direction = {x: 0, y: 1}; break;
+            case 'ArrowLeft': if (this.direction.x === 0) this.direction = {x: -1, y: 0}; break;
+            case 'ArrowRight': if (this.direction.x === 0) this.direction = {x: 1, y: 0}; break;
+        }
+    }
+
+    randomPosition() {
+        return {
+            x: Math.floor(Math.random() * this.gridSize),
+            y: Math.floor(Math.random() * this.gridSize)
+        };
+    }
+
+    moveSnake() {
+        const newHead = {
+            x: this.snake[0].x + this.direction.x,
+            y: this.snake[0].y + this.direction.y
+        };
+
+        this.snake.unshift(newHead);
+
+        if (newHead.x === this.food.x && newHead.y === this.food.y) {
+            this.food = this.randomPosition();
+        } else {
+            this.snake.pop();
+        }
+    }
+
+    render() {
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+        this.gl.enableVertexAttribArray(this.positionLocation);
+        this.gl.vertexAttribPointer(this.positionLocation, 2, this.gl.FLOAT, false, 0, 0);
+
+        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
+
+        this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+
+        this.moveSnake();
+        requestAnimationFrame(this.render.bind(this));
+    }
+}
+
+new SnakeGame(document.getElementById('gameContainer'));
+
+</script>
+</body>
+</html>
+

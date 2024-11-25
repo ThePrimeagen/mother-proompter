@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #game-container { width: 100vw; height: 100vh; position: relative; }
+    canvas { display: block; } /* Remove scrollbars */
+    #end-screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 2em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      display: none;
+    }
+    #play-again-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <script>
+    (function() {
+      var container = document.getElementById('game-container');
+      var canvas = document.createElement('canvas');
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      container.appendChild(canvas);
+      var gl = canvas.getContext('webgl');
+
+      // Check for the WebGL context
+      if (!gl) {
+        alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+        return;
+      }
+
+      // Initialize shaders and program
+      // Vertex shader source
+      var vsSource = `
+        attribute vec4 aVertexPosition;
+        void main() {
+          gl_Position = aVertexPosition;
+        }
+      `;
+
+      // Fragment shader source
+      var fsSource = `
+        precision mediump float;
+
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform vec2 uSnakePos[100];
+        uniform int uSnakeLength;
+        uniform vec2 uFoodPos;
+        uniform int uGameOver;
+
+        void main() {
+          vec2 st = gl_FragCoord.xy / uResolution;
+
+          vec3 color = vec3(0.0);
+
+          // Draw background
+          color = vec3(0.1, 0.1, 0.1);
+
+          // Draw food
+          float d = distance(st, uFoodPos);
+          if (d < 0.015) {
+            color = vec3(1.0, 0.0, 0.0);
+          }
+
+          // Draw snake
+          for (int i = 0; i < 100; i++) {
+            if (i >= uSnakeLength) break;
+            float sd = distance(st, uSnakePos[i]);
+            if (sd < 0.015) {
+              color = vec3(0.0, 1.0, 0.0);
+            }
+          }
+
+          // Game over screen
+          if (uGameOver == 1) {
+            color = mix(color, vec3(0.0, 0.0, 0.0), 0.7);
+          }
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      // Initialize shader program
+      var shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+      var programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+          vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+        },
+        uniformLocations: {
+          resolution: gl.getUniformLocation(shaderProgram, 'uResolution'),
+          time: gl.getUniformLocation(shaderProgram, 'uTime'),
+          snakePos: gl.getUniformLocation(shaderProgram, 'uSnakePos'),
+          snakeLength: gl.getUniformLocation(shaderProgram, 'uSnakeLength'),
+          foodPos: gl.getUniformLocation(shaderProgram, 'uFoodPos'),
+          gameOver: gl.getUniformLocation(shaderProgram, 'uGameOver'),
+        },
+      };
+
+      // Position buffer
+      var positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      var positions = [
+        -1.0,  1.0,
+        -1.0, -1.0,
+         1.0,  1.0,
+         1.0, -1.0,
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+      var snake = [{ x: 0.5, y: 0.5 }];
+      var snakeLength = 1;
+      var direction = 'right';
+      var food = getRandomFoodPos();
+      var lastUpdateTime = 0;
+      var gameOver = false;
+
+      // User input
+      window.addEventListener('keydown', function(e) {
+        switch (e.key) {
+          case 'ArrowUp':
+            if (direction !== 'down') direction = 'up';
+            break;
+          case 'ArrowDown':
+            if (direction !== 'up') direction = 'down';
+            break;
+          case 'ArrowLeft':
+            if (direction !== 'right') direction = 'left';
+            break;
+          case 'ArrowRight':
+            if (direction !== 'left') direction = 'right';
+            break;
+        }
+      });
+
+      function getRandomFoodPos() {
+        return {
+          x: Math.random(),
+          y: Math.random(),
+        };
+      }
+
+      function checkCollision(pos) {
+        // Check wall collision
+        if (pos.x < 0 || pos.x > 1 || pos.y < 0 || pos.y > 1) {
+          return true;
+        }
+        // Check self collision
+        for (var i = 1; i < snake.length; i++) {
+          if (Math.abs(pos.x - snake[i].x) < 0.01 && Math.abs(pos.y - snake[i].y) < 0.01) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function updateSnake() {
+        var head = { x: snake[0].x, y: snake[0].y };
+        switch (direction) {
+          case 'up':
+            head.y -= 0.02;
+            break;
+          case 'down':
+            head.y += 0.02;
+            break;
+          case 'left':
+            head.x -= 0.02;
+            break;
+          case 'right':
+            head.x += 0.02;
+            break;
+        }
+
+        if (checkCollision(head)) {
+          gameOver = true;
+        }
+
+        snake.unshift(head);
+
+        // Check food collision
+        if (Math.abs(head.x - food.x) < 0.02 && Math.abs(head.y - food.y) < 0.02) {
+          snakeLength++;
+          food = getRandomFoodPos();
+        }
+
+        while (snake.length > snakeLength) {
+          snake.pop();
+        }
+      }
+
+      // Game loop
+      function render(now) {
+        now *= 0.001; // Convert to seconds
+        var deltaTime = now - lastUpdateTime;
+
+        if (!gameOver && deltaTime > 0.1) {
+          updateSnake();
+          lastUpdateTime = now;
+        }
+
+        drawScene(gl, programInfo, positionBuffer);
+
+        requestAnimationFrame(render);
+      }
+      requestAnimationFrame(render);
+
+      function drawScene(gl, programInfo, positionBuffer) {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clearColor(0.1, 0.1, 0.1, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.useProgram(programInfo.program);
+
+        // Set the positions
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.vertexAttribPointer(
+          programInfo.attribLocations.vertexPosition,
+          2,           // Num components per iteration
+          gl.FLOAT,    // Type
+          false,       // Normalize
+          0,           // Stride
+          0            // Offset
+        );
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+
+        // Set uniforms
+        gl.uniform2f(programInfo.uniformLocations.resolution, canvas.width, canvas.height);
+        gl.uniform1f(programInfo.uniformLocations.time, performance.now() / 1000);
+        var snakePosArray = new Float32Array(200);
+        for (var i = 0; i < 100; i++) {
+          if (i < snake.length) {
+            snakePosArray[i * 2] = snake[i].x;
+            snakePosArray[i * 2 + 1] = snake[i].y;
+          } else {
+            snakePosArray[i * 2] = -1.0;
+            snakePosArray[i * 2 + 1] = -1.0;
+          }
+        }
+        gl.uniform2fv(programInfo.uniformLocations.snakePos, snakePosArray);
+        gl.uniform1i(programInfo.uniformLocations.snakeLength, snakeLength);
+        gl.uniform2f(programInfo.uniformLocations.foodPos, food.x, food.y);
+        gl.uniform1i(programInfo.uniformLocations.gameOver, gameOver ? 1 : 0);
+
+        // Draw
+        var offset = 0;
+        var vertexCount = 4;
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+
+        if (gameOver) {
+          showEndScreen();
+        }
+      }
+
+      function showEndScreen() {
+        if (!document.getElementById('end-screen')) {
+          var endScreen = document.createElement('div');
+          endScreen.id = 'end-screen';
+          endScreen.innerHTML = '<div>Game Over</div><button id="play-again-btn">Play Again</button>';
+          container.appendChild(endScreen);
+          var playAgainBtn = document.getElementById('play-again-btn');
+          playAgainBtn.addEventListener('click', function() {
+            snake = [{ x: 0.5, y: 0.5 }];
+            snakeLength = 1;
+            direction = 'right';
+            food = getRandomFoodPos();
+            gameOver = false;
+            lastUpdateTime = 0;
+            endScreen.style.display = 'none';
+          });
+        }
+        document.getElementById('end-screen').style.display = 'flex';
+      }
+
+      function initShaderProgram(gl, vsSource, fsSource) {
+        var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+        var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        var shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        // If creating the shader program failed, alert
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+          alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+          return null;
+        }
+        return shaderProgram;
+      }
+
+      function loadShader(gl, type, source) {
+        var shader = gl.createShader(type);
+
+        // Send the source to the shader object
+        gl.shaderSource(shader, source);
+
+        // Compile the shader program
+        gl.compileShader(shader);
+
+        // See if it compiled successfully
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+          gl.deleteShader(shader);
+          return null;
+        }
+
+        return shader;
+      }
+
+      // Handle window resize
+      window.addEventListener('resize', function() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      });
+    })();
+  </script>
+</body>
+</html>
+

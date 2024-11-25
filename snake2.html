@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        canvas {
+            display: block;
+            margin: auto;
+            background: black;
+        }
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            color: white;
+            background: #1e1e1e;
+        }
+        h1 {
+            color: lime;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake Game</h1>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const gl = canvas.getContext("webgl");
+
+        if (!gl) {
+            alert("WebGL is not supported in your browser.");
+        }
+
+        // Shaders for rendering
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            void main() {
+                gl_Position = vec4(a_position, 0, 1);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision mediump float;
+            uniform vec4 u_color;
+            void main() {
+                gl_FragColor = u_color;
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error("Shader compilation failed: ", gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Program linking failed: ", gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(gl, vertexShader, fragmentShader);
+
+        const positionBuffer = gl.createBuffer();
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        const colorLocation = gl.getUniformLocation(program, "u_color");
+
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        // Game variables
+        const GRID_SIZE = 20;
+        const SQUARE_SIZE = 2 / GRID_SIZE;
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: Math.floor(Math.random() * GRID_SIZE), y: Math.floor(Math.random() * GRID_SIZE) };
+        let direction = { x: 0, y: 0 };
+        let gameOver = false;
+
+        function renderSquare(x, y, color) {
+            const x1 = (x / GRID_SIZE) * 2 - 1;
+            const y1 = (y / GRID_SIZE) * 2 - 1;
+            const x2 = x1 + SQUARE_SIZE;
+            const y2 = y1 + SQUARE_SIZE;
+
+            const vertices = new Float32Array([
+                x1, y1,
+                x2, y1,
+                x1, y2,
+                x1, y2,
+                x2, y1,
+                x2, y2
+            ]);
+
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.uniform4fv(colorLocation, color);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+            // Check for collisions
+            if (
+                head.x < 0 || head.x >= GRID_SIZE ||
+                head.y < 0 || head.y >= GRID_SIZE ||
+                snake.some(segment => segment.x === head.x && segment.y === head.y)
+            ) {
+                gameOver = true;
+                alert("Game Over! Press OK to restart.");
+                resetGame();
+                return;
+            }
+
+            snake.unshift(head);
+
+            // Check for food
+            if (head.x === food.x && head.y === food.y) {
+                food = { x: Math.floor(Math.random() * GRID_SIZE), y: Math.floor(Math.random() * GRID_SIZE) };
+            } else {
+                snake.pop();
+            }
+        }
+
+        function resetGame() {
+            snake = [{ x: 10, y: 10 }];
+            direction = { x: 0, y: 0 };
+            food = { x: Math.floor(Math.random() * GRID_SIZE), y: Math.floor(Math.random() * GRID_SIZE) };
+            gameOver = false;
+        }
+
+        function draw() {
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // Draw snake
+            snake.forEach(segment => renderSquare(segment.x, segment.y, [0, 1, 0, 1]));
+
+            // Draw food
+            renderSquare(food.x, food.y, [1, 0, 0, 1]);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowUp" && direction.y === 0) direction = { x: 0, y: -1 };
+            if (e.key === "ArrowDown" && direction.y === 0) direction = { x: 0, y: 1 };
+            if (e.key === "ArrowLeft" && direction.x === 0) direction = { x: -1, y: 0 };
+            if (e.key === "ArrowRight" && direction.x === 0) direction = { x: 1, y: 0 };
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
+

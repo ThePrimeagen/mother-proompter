@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+        }
+        canvas {
+            border: 1px solid #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script type="x-shader/x-vertex" id="vertex-shader">
+        attribute vec2 a_position;
+        void main() {
+            gl_Position = vec4(a_position, 0, 1);
+        }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragment-shader">
+        precision mediump float;
+        uniform vec2 u_resolution;
+        uniform vec3 u_color;
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / u_resolution;
+            gl_FragColor = vec4(u_color, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const gl = canvas.getContext("webgl");
+
+        let snake = [{x: 2, y: 2}];
+        let snakeDir = {x: 1, y: 0};
+        let food = {x: 5, y: 5};
+        let gridSize = 20;
+        let gameSpeed = 100;
+        let running = true;
+
+        window.addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'ArrowUp':
+                    if (snakeDir.y === 0) snakeDir = { x: 0, y: -1 };
+                    break;
+                case 'ArrowDown':
+                    if (snakeDir.y === 0) snakeDir = { x: 0, y: 1 };
+                    break;
+                case 'ArrowLeft':
+                    if (snakeDir.x === 0) snakeDir = { x: -1, y: 0 };
+                    break;
+                case 'ArrowRight':
+                    if (snakeDir.x === 0) snakeDir = { x: 1, y: 0 };
+                    break;
+            }
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        }
+
+        function compileShader(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(vertexShaderSource, fragmentShaderSource) {
+            const vertexShader = compileShader(gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+            const shaderProgram = gl.createProgram();
+            gl.attachShader(shaderProgram, vertexShader);
+            gl.attachShader(shaderProgram, fragmentShader);
+            gl.linkProgram(shaderProgram);
+            if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+                console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+                return null;
+            }
+            return shaderProgram;
+        }
+
+        const vertexShaderSource = document.getElementById("vertex-shader").text;
+        const fragmentShaderSource = document.getElementById("fragment-shader").text;
+        const shaderProgram = createProgram(vertexShaderSource, fragmentShaderSource);
+        gl.useProgram(shaderProgram);
+
+        const positionLocation = gl.getAttribLocation(shaderProgram, 'a_position');
+        const resolutionUniformLocation = gl.getUniformLocation(shaderProgram, 'u_resolution');
+        const colorUniformLocation = gl.getUniformLocation(shaderProgram, 'u_color');
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        function drawRect(x, y, width, height) {
+            const x1 = (x / gridSize) * 2 - 1;
+            const y1 = (y / gridSize) * 2 - 1;
+            const x2 = ((x + width) / gridSize) * 2 - 1;
+            const y2 = ((y + height) / gridSize) * 2 - 1;
+
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                x1, y1,
+                x2, y1,
+                x1, y2,
+                x1, y2,
+                x2, y1,
+                x2, y2
+            ]), gl.STATIC_DRAW);
+        }
+
+        function generateFood() {
+            food.x = Math.floor(Math.random() * gridSize);
+            food.y = Math.floor(Math.random() * gridSize);
+        }
+
+        function drawScene() {
+            gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
+
+            // Clear canvas
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // Draw Snake
+            gl.uniform3f(colorUniformLocation, 0.0, 1.0, 0.0);
+            snake.forEach(segment => drawRect(segment.x, segment.y, 1, 1));
+            gl.drawArrays(gl.TRIANGLES, 0, 6 * snake.length);
+
+            // Draw Food
+            gl.uniform3f(colorUniformLocation, 1.0, 0.0, 0.0);
+            drawRect(food.x, food.y, 1, 1);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+
+        function update() {
+            if (!running) return;
+
+            const head = { x: snake[0].x + snakeDir.x, y: snake[0].y + snakeDir.y };
+
+            if (head.x < 0 || head.y < 0 || head.x >= gridSize || head.y >= gridSize || snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                running = false;
+                window.alert("Game Over! Press OK to restart.");
+                snake = [{x: 2, y: 2}];
+                snakeDir = {x: 1, y: 0};
+                generateFood();
+                running = true;
+            } else {
+                snake.unshift(head);
+
+                if (head.x === food.x && head.y === food.y) {
+                    generateFood();
+                } else {
+                    snake.pop();
+                }
+            }
+        }
+
+        function loop() {
+            update();
+            drawScene();
+            if (running) {
+                setTimeout(loop, gameSpeed);
+            }
+        }
+
+        resizeCanvas();
+        generateFood();
+        loop();
+
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
+

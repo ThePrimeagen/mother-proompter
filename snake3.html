@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
+        canvas { display: block; }
+        #gameDiv { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="gameDiv"></div>
+    <script>
+// Vertex Shader
+const vertexShaderSource = `
+attribute vec4 a_position;
+void main() {
+    gl_Position = a_position;
+}
+`;
+
+// Fragment Shader
+const fragmentShaderSource = `
+precision mediump float;
+uniform vec4 u_color;
+void main() {
+    gl_FragColor = u_color;
+}
+`;
+
+function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compile failed with: ' + gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+    }
+    return shader;
+}
+
+function createProgram(gl, vertexShader, fragmentShader) {
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program link failed with: ' + gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        return null;
+    }
+    return program;
+}
+
+function createSnakeGame(gl) {
+    let direction = 'RIGHT';
+    const snake = [{ x: 0, y: 0 }];
+    const food = { x: Math.floor((Math.random() * 20) - 10), y: Math.floor((Math.random() * 20) - 10) };
+    let snakeLength = 1;
+
+    function processInput(event) {
+        const key = event.keyCode;
+        if (key === 37 && direction !== 'RIGHT') direction = 'LEFT';
+        if (key === 38 && direction !== 'DOWN') direction = 'UP';
+        if (key === 39 && direction !== 'LEFT') direction = 'RIGHT';
+        if (key === 40 && direction !== 'UP') direction = 'DOWN';
+    }
+
+    document.addEventListener('keydown', processInput);
+
+    function updateSnake() {
+        const head = { x: snake[0].x, y: snake[0].y };
+
+        if (direction === 'LEFT') head.x -= 1;
+        if (direction === 'UP') head.y += 1;
+        if (direction === 'RIGHT') head.x += 1;
+        if (direction === 'DOWN') head.y -= 1;
+
+        snake.unshift(head);
+
+        if (head.x === food.x && head.y === food.y) {
+            snakeLength++;
+            food.x = Math.floor((Math.random() * 20) - 10);
+            food.y = Math.floor((Math.random() * 20) - 10);
+        }
+
+        if (snake.length > snakeLength) {
+            snake.pop();
+        }
+    }
+
+    function isGameOver() {
+        const head = snake[0];
+        if (head.x > 10 || head.x < -10 || head.y > 10 || head.y < -10) return true;
+        for (let i = 1; i < snake.length; i++) {
+            if (snake[i].x === head.x && snake[i].y === head.y) return true;
+        }
+        return false;
+    }
+
+    function drawSquare(gl, x, y, color) {
+        const positions = new Float32Array([
+            -0.1 + 0.01 * x, -0.1 + 0.01 * y,
+             0.1 + 0.01 * x, -0.1 + 0.01 * y,
+            -0.1 + 0.01 * x,  0.1 + 0.01 * y,
+             0.1 + 0.01 * x,  0.1 + 0.01 * y
+        ]);
+
+        const colorUniformLocation = gl.getUniformLocation(program, 'u_color');
+        gl.uniform4fv(colorUniformLocation, color);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, 'a_position');
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    function render() {
+        if (isGameOver()) {
+            alert('Game Over! Press OK to restart');
+            window.location.reload();
+            return;
+        }
+
+        updateSnake();
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        snake.forEach(part => drawSquare(gl, part.x, part.y, [0, 1, 0, 1]));
+
+        drawSquare(gl, food.x, food.y, [1, 0, 0, 1]);
+
+        requestAnimationFrame(render);
+    }
+
+    render();
+}
+
+const canvas = document.createElement('canvas');
+document.getElementById('gameDiv').append(canvas);
+const gl = canvas.getContext('webgl');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+if (gl) {
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    window.program = createProgram(gl, vertexShader, fragmentShader);
+
+    gl.useProgram(program);
+    createSnakeGame(gl);
+} else {
+    console.error('WebGL not supported.');
+}
+    </script>
+</body>
+</html>
+
