@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mother Proompter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        header {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .explanation {
+            margin-bottom: 20px;
+        }
+
+        .textbox {
+            width: 16em;
+            height: 30px;
+            margin-bottom: 20px;
+        }
+
+        .editor-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .editor {
+            width: 49%;
+            height: 300px;
+            border: 1px solid #ccc;
+        }
+
+        .scrollable-box {
+            width: 99%;
+            height: 4em;
+            background-color: rgb(235, 235, 235);
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            padding: 0.5em;
+            box-sizing: border-box;
+            border: 1px solid darkgray;
+        }
+
+        .button-container {
+            margin-bottom: 20px;
+        }
+
+        .button-container button {
+            padding: 10px 15px;
+            margin-right: 10px;
+        }
+
+        .status-label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Your Proompt Command Center</h1>
+
+<p class="explanation">
+    This website will help you develop the best proompts known to man by using
+            advanced techniques of glazing
+</p>
+
+OpenAPI Key<input type="password" class="textbox" id="api-key" placeholder="Your throwaway OpenAI API key">
+<script>
+async function callOpenAI(apiKey, prompt) {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [{ role: "user", content: prompt }]
+        })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error?.message || "Unknown error");
+    }
+    return data.choices[0].message.content;
+}
+    });
+</script>
+
+</body>
+</html>
+
+
