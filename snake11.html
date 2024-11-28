@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shader Snake Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #gameCanvas { width: 100vw; height: 100vh; display: block; }
+        #gameDiv { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
+        #gameEnd { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; }
+    </style>
+</head>
+<body>
+    <div id="gameDiv"></div>
+    <div id="gameEnd">
+        <h1>Game Over</h1>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        attribute vec2 coordinates;
+        void main(void) {
+            gl_Position = vec4(coordinates, 0.0, 1.0);
+        }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform vec2 resolution;
+        uniform vec2 segments[100];
+        uniform int segmentCount;
+        uniform vec2 apple;
+
+        void main(void) {
+            vec2 uv = gl_FragCoord.xy / resolution;
+            uv = uv * 2.0 - 1.0;
+
+            vec3 color = vec3(0.0);
+
+            float radius = 0.02;
+            for (int i = 0; i < 100; i++) {
+                if (i < segmentCount) {
+                    if (length(uv - segments[i]) < radius) {
+                        color = vec3(0.0, 1.0, 0.0);
+                    }
+                }
+            }
+
+            if (length(uv - apple) < radius) {
+                color = vec3(1.0, 0.0, 0.0);
+            }
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+    <script>
+        const canvasDiv = document.getElementById('gameDiv');
+        const gameCanvas = document.createElement('canvas');
+        canvasDiv.appendChild(gameCanvas);
+        const gl = gameCanvas.getContext('webgl');
+        const gameEnd = document.getElementById('gameEnd');
+
+        const vertexShaderSource = document.getElementById('vertexShader').text;
+        const fragmentShaderSource = document.getElementById('fragmentShader').text;
+
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentShaderSource);
+        gl.compileShader(fragmentShader);
+
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+
+        const vertices = new Float32Array([
+            -1, 1,
+            -1, -1,
+            1, 1,
+            1, -1
+        ]);
+
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        const coordinatesVar = gl.getAttribLocation(shaderProgram, 'coordinates');
+        gl.vertexAttribPointer(coordinatesVar, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(coordinatesVar);
+
+        let resolutionUniform = gl.getUniformLocation(shaderProgram, 'resolution');
+        let segmentsUniform = gl.getUniformLocation(shaderProgram, 'segments');
+        let segmentCountUniform = gl.getUniformLocation(shaderProgram, 'segmentCount');
+        let appleUniform = gl.getUniformLocation(shaderProgram, 'apple');
+
+        let segments = new Array(100).fill([0, 0]);
+        let segmentCount = 5;
+        let apple = [0.5, 0.5];
+
+        let direction = [1, 0];
+        let nextDirection = [1, 0];
+        let gridSize = 20;
+        let snakeHead = [0, 0];
+
+        window.addEventListener('keydown', function (event) {
+            if (event.key === 'ArrowUp' && direction[1] === 0) nextDirection = [0, 1];
+            if (event.key === 'ArrowDown' && direction[1] === 0) nextDirection = [0, -1];
+            if (event.key === 'ArrowLeft' && direction[0] === 0) nextDirection = [-1, 0];
+            if (event.key === 'ArrowRight' && direction[0] === 0) nextDirection = [1, 0];
+        });
+
+        function updateGame() {
+            direction = nextDirection;
+            snakeHead[0] += direction[0] / gridSize;
+            snakeHead[1] += direction[1] / gridSize;
+
+            if (snakeHead[0] < -1 || snakeHead[0] > 1 || snakeHead[1] < -1 || snakeHead[1] > 1) {
+                endGame();
+                return;
+            }
+
+            for (let i = segmentCount - 1; i > 0; i--) {
+                segments[i] = segments[i - 1];
+            }
+            segments[0] = snakeHead.slice();
+
+            if (Math.abs(snakeHead[0] - apple[0]) < 0.05 && Math.abs(snakeHead[1] - apple[1]) < 0.05) {
+                segmentCount++;
+                apple = [Math.random() * 2 - 1, Math.random() * 2 - 1];
+            }
+
+            let uniqueSegments = new Set(segments.slice(0, segmentCount).map(s => s.toString()));
+            if (uniqueSegments.size !== segmentCount) {
+                endGame();
+                return;
+            }
+
+            renderScene();
+        }
+
+        function renderScene() {
+            gameCanvas.width = window.innerWidth;
+            gameCanvas.height = window.innerHeight;
+            gl.viewport(0, 0, gameCanvas.width, gameCanvas.height);
+
+            gl.clearColor(0, 0, 0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.uniform2f(resolutionUniform, gameCanvas.width, gameCanvas.height);
+            gl.uniform2fv(segmentsUniform, [].concat(...segments));
+            gl.uniform1i(segmentCountUniform, segmentCount);
+            gl.uniform2f(appleUniform, apple[0], apple[1]);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+        function endGame() {
+            clearInterval(gameLoop);
+            gameEnd.style.display = 'block';
+        }
+
+        function restartGame() {
+            snakeHead = [0, 0];
+            segments = new Array(100).fill([0, 0]);
+            segmentCount = 5;
+            direction = [1, 0];
+            nextDirection = [1, 0];
+            apple = [0.5, 0.5];
+            gameEnd.style.display = 'none';
+            gameLoop = setInterval(updateGame, 100);
+        }
+
+        let gameLoop = setInterval(updateGame, 100);
+    </script>
+</body>
+</html>
+

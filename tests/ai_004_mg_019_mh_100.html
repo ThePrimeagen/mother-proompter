@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #282c34;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            width: 400px;
+            height: 400px;
+            border: 2px solid white;
+            position: relative;
+        }
+        canvas {
+            background-color: #333;
+            display: block;
+        }
+        #game-over {
+            display:none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        #game-over button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div id="game-over">
+            <h1>Game Over</h1>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+    <script src="./ai_4_mg_19_mh_100.js"></script>
+</body>
+</html>
+
